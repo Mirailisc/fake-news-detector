@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Fake News Detector</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap');
+
+    html,
+    body {
+        font-family: 'JetBrains Mono', monospace;
+    }
+</style>
+
+<body class="bg-[#0a0a0a] min-h-screen flex flex-col items-center p-6">
+    <h1 class="text-4xl font-bold mb-8 text-blue-600">Fake News Detector</h1>
+    <form id="predict-form" class="w-full max-w-xl bg-[#1c1c1c] p-6 rounded-lg shadow-md">
+        <label for="text" class="block text-lg text-white font-medium mb-2">Enter text:</label>
+        <textarea id="text" name="text" rows="4"
+            class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"></textarea>
+        <button type="submit"
+            class="mt-6 w-full bg-blue-600 text-white hover:bg-blue-700 font-semibold py-3 rounded-md transition duration-300">
+            Predict
+        </button>
+    </form>
+
+    <!-- Result section -->
+    <div id="result-section" class="hidden w-full max-w-xl">
+        <h2 class="text-2xl font-bold mt-8 text-white">Result</h2>
+        <div id="result-container" class="mt-3 bg-[#1c1c1c] p-4 rounded-md shadow-md">
+            <div id="result" class="flex flex-row gap-2 items-center justify-center text-white"></div>
+        </div>
+    </div>
+
+    <!-- Response JSON section -->
+    <div id="json-section" class="hidden w-full max-w-xl">
+        <h2 class="text-2xl font-bold mt-8 text-white">Response Json</h2>
+        <pre id="response-json" class="mt-4 bg-[#1c1c1c] text-white text-sm p-4 rounded overflow-x-auto"></pre>
+    </div>
+
+
+    <script>
+        const resultSection = document.getElementById('result-section');
+        const resultEl = document.getElementById('result');
+        const resultContainer = document.getElementById('result-container');
+        const responseJsonSection = document.getElementById('response-json');
+        const jsonSection = document.getElementById('json-section');
+
+        document.getElementById('predict-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const text = document.getElementById('text').value.trim();
+
+            if (!text) {
+                resultEl.innerHTML = '';
+                resultContainer.className = 'mt-3 bg-[#1c1c1c] p-4 rounded-md shadow-md';
+                resultEl.className = 'flex flex-row gap-2 items-center justify-center text-white';
+                resultSection.classList.add('hidden');
+                jsonSection.classList.add('hidden');
+                return;
+            }
+
+            // Show loader
+            resultSection.classList.remove('hidden');
+            jsonSection.classList.add('hidden');
+            resultEl.innerHTML = '<span class="text-gray-400">Loading...</span>';
+            resultContainer.className = 'mt-3 bg-[#1c1c1c] p-4 rounded-md shadow-md';
+            resultEl.className = 'flex flex-row gap-2 items-center justify-center text-white';
+
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ text })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'An unknown error occurred');
+                }
+
+                const result = await response.json();
+
+                const labels = {
+                    0: 'ข่าวจริง',
+                    1: 'ข่าวปลอม'
+                };
+
+                const label = labels[result.predicted_class] ?? 'ไม่ทราบ';
+                const confidence = Math.round(result.confidence * 100);
+
+                resultEl.innerHTML = `
+            <div class="text-2xl font-bold">${confidence}%</div>
+            <div class="text-xl">${label}</div>
+        `;
+
+                if (result.predicted_class === 0) {
+                    resultEl.classList.add('text-green-400');
+                    resultContainer.classList.add('border', 'border-green-500');
+                } else if (result.predicted_class === 1) {
+                    resultEl.classList.add('text-red-400');
+                    resultContainer.classList.add('border', 'border-red-500');
+                } else {
+                    resultEl.classList.add('text-gray-400');
+                    resultContainer.classList.add('border', 'border-gray-500');
+                }
+
+                responseJsonSection.textContent = JSON.stringify(result, null, 2);
+                jsonSection.classList.remove('hidden');
+
+            } catch (err) {
+                resultEl.innerHTML = `<div class="text-xl text-yellow-400">Error: ${err.message}</div>`;
+                resultContainer.classList.add('border', 'border-yellow-500');
+                jsonSection.classList.add('hidden');
+            }
+        });
+    </script>
+</body>
+
+</html>
