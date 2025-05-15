@@ -34,7 +34,7 @@ def get_form(request: Request):
 def predict(request: TextRequest):
     if not request.text:
         raise HTTPException(status_code=400, detail="Text is required")
-    
+
     try:
         inputs = tokenizer(request.text, return_tensors="pt",
                            truncation=True, padding=True)
